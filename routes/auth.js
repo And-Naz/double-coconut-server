@@ -76,17 +76,18 @@ router.post(
 			if (!candidate) {
 				return res.status(400).json({ message: "User doesn't exists" })
 			}
-			const user = candidate.dataValues
+			const user = { ...candidate.dataValues }
 			const isMatch = await bcrypt.compare(password, user.password)
 			if (!isMatch) {
 				return res.status(400).json({ message: 'Wrong login and password combination.' })
 			}
+			delete user.password
 			const token = jwt.sign(
-				{ userId: user.id },
+				user,
 				process.env.JWT_SECRET,
 				{ expiresIn: '1h' }
 			)
-			res.json({ token, userId: user.id })
+			res.json({ token, user })
 		} catch (e) {
 			res.status(500).json({ message: 'Something goes wrong, try again' })
 		}
