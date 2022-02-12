@@ -9,12 +9,10 @@ const db = require('./models')
 
 app.use(cors())
 app.use(express.json())
-app.use(express.json({ extended: true }))
-app.use(express.urlencoded())
 app.use(express.urlencoded({ extended: true }))
 
 app.use('/', require('./routes/home'))
-app.use('/post', require('./routes/post'))
+app.use('/posts', require('./routes/posts'))
 app.use('/auth', require('./routes/auth'))
 
 async function Main() {

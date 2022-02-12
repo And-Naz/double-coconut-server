@@ -2,7 +2,7 @@ const { Router } = require('express')
 const router = Router()
 const auth = require('../middleware/auth')
 const { sequelize, Posts } = require('../models')
-// /post
+// /posts
 // router.get('/', auth, async (req, res) => {
 router.get('/', async (req, res) => {
 	try {

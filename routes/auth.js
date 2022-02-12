@@ -1,8 +1,9 @@
 const { Router } = require('express')
-const bcrypt = require('bcryptjs')
+const bcrypt = require('bcrypt')
 const jwt = require('jsonwebtoken')
 const { check, validationResult } = require('express-validator')
-// const User = require('../models/User')
+const { sequelize, Users } = require('../models')
+const { Op } = require("sequelize");
 const router = Router()
 
 
@@ -10,11 +11,15 @@ const router = Router()
 router.post(
 	'/register',
 	[
-		check('email', 'Incorect email').isEmail(),
-		check('password', 'Password min length must be 6.')
-			.isLength({ min: 6 })
+		check("login", "Login is required").exists(),
+		check('password', 'Password min length must be 6.').exists().isLength({ min: 6 }),
+		check('email', 'Incorect email').exists().isEmail(),
+		check("firstName", "Login is required").exists(),
+		check("lastName", "Login is required").exists(),
+		check("companyName", "Login is required").exists()
 	],
 	async (req, res) => {
+		const transaction = await sequelize.transaction();
 		try {
 			const errors = validationResult(req)
 			if (!errors.isEmpty()) {
@@ -23,17 +28,25 @@ router.post(
 					message: 'Incorrect data during registration'
 				})
 			}
-			// const { email, password } = req.body
-			// const candidate = await User.findOne({ email })
-			// if (candidate) {
-			// return res.status(400).json({ message: 'User with same email already exists.' })
-			// }
-			// const hashedPassword = await bcrypt.hash(password, 12)
-			// const user = new User({ email, password: hashedPassword })
-			// await user.save()
-			// res.status(201).json({ message: 'User has been created' })
-			res.status(200).json({ message: "register" })
+			const { login, password, email, firstName, lastName, companyName } = req.body
+			const candidate = await Users.findOne({
+				where: {
+					[Op.or]: [{ login }, { email }]
+				}
+			})
+			if (candidate) {
+				return res.status(400).json({ message: 'User with same email or login already exists.' })
+			}
+			const hashedPassword = await bcrypt.hash(password, 10)
+			const newUser = {
+				login, email, firstName, lastName, companyName,
+				password: hashedPassword
+			}
+			const { dataValues } = await Users.create(newUser, { transaction })
+			await transaction.commit()
+			res.status(201).json({ message: 'User has been created' })
 		} catch (e) {
+			transaction.rollback();
 			res.status(500).json({ message: 'Something goes wrong, try again' })
 		}
 	})
@@ -42,7 +55,7 @@ router.post(
 router.post(
 	'/login',
 	[
-		check('email', 'Incorect email').normalizeEmail().isEmail(),
+		check('loginOrEemail', 'Incorect email or login').exists(),
 		check('password', 'Enter the password').exists()
 	],
 	async (req, res) => {
@@ -54,22 +67,26 @@ router.post(
 					message: 'Incorrect data during the enter in system.'
 				})
 			}
-			// const { email, password } = req.body
-			// const user = await User.findOne({ email })
-			// if (!user) {
-			// 	return res.status(400).json({ message: "User doesn't exists" })
-			// }
-			// const isMatch = await bcrypt.compare(password, user.password)
-			// if (!isMatch) {
-			// 	return res.status(400).json({ message: 'Incorrect password, try again' })
-			// }
-			// const token = jwt.sign(
-			// 	{ userId: user.id },
-			// 	process.env.JWT_SECRET,
-			// 	{ expiresIn: '1h' }
-			// )
-			// res.json({ token, userId: user.id })
-			res.status(200).json({ message: "login" })
+			const { loginOrEemail, password } = req.body
+			const candidate = await Users.findOne({
+				where: {
+					[Op.or]: [{ login: loginOrEemail }, { email: loginOrEemail }]
+				}
+			})
+			if (!candidate) {
+				return res.status(400).json({ message: "User doesn't exists" })
+			}
+			const user = candidate.dataValues
+			const isMatch = await bcrypt.compare(password, user.password)
+			if (!isMatch) {
+				return res.status(400).json({ message: 'Wrong login and password combination.' })
+			}
+			const token = jwt.sign(
+				{ userId: user.id },
+				process.env.JWT_SECRET,
+				{ expiresIn: '1h' }
+			)
+			res.json({ token, userId: user.id })
 		} catch (e) {
 			res.status(500).json({ message: 'Something goes wrong, try again' })
 		}
