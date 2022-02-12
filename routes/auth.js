@@ -9,7 +9,7 @@ const router = Router()
 
 // /auth/register
 router.post(
-	'/register',
+	'/registration',
 	[
 		check("login", "Login is required").exists(),
 		check('password', 'Password min length must be 6.').exists().isLength({ min: 6 }),
