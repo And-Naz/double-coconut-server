@@ -7,7 +7,7 @@ const { Op } = require("sequelize");
 const router = Router()
 
 
-// /auth/register
+// /auth/registration
 router.post(
 	'/registration',
 	[
@@ -81,13 +81,16 @@ router.post(
 			if (!isMatch) {
 				return res.status(400).json({ message: 'Wrong login and password combination.' })
 			}
+			delete user.id
 			delete user.password
+			delete user.updatedAt
+			delete user.createdAt
 			const token = jwt.sign(
 				user,
 				process.env.JWT_SECRET,
 				{ expiresIn: '1h' }
 			)
-			res.json({ token, user })
+			res.status(200).json({ token, user })
 		} catch (e) {
 			res.status(500).json({ message: 'Something goes wrong, try again' })
 		}
