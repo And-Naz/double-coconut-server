@@ -51,7 +51,8 @@ router.patch('/', auth, async (req, res) => {
 		await Posts.update(
 			{ ...post },
 			{ where: { id } },
-			{ transaction })
+			{ transaction }
+		)
 		await transaction.commit()
 		res.status(204).json({ ok: true })
 	} catch (e) {

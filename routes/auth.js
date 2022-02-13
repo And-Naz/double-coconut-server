@@ -6,7 +6,6 @@ const { sequelize, Users } = require('../models')
 const { Op } = require("sequelize");
 const router = Router()
 
-
 // /auth/registration
 router.post(
 	'/registration',
@@ -42,7 +41,7 @@ router.post(
 				login, email, firstName, lastName, companyName,
 				password: hashedPassword
 			}
-			const { dataValues } = await Users.create(newUser, { transaction })
+			await Users.create(newUser, { transaction })
 			await transaction.commit()
 			res.status(201).json({ message: 'User has been created' })
 		} catch (e) {
@@ -96,5 +95,61 @@ router.post(
 		}
 	})
 
+// /auth/edit
+router.patch(
+	'/edit',
+	[
+		check("login", "Login is required").exists(),
+		check('email', 'Incorect email').exists().isEmail(),
+		check("firstName", "Login is required").exists(),
+		check("lastName", "Login is required").exists(),
+		check("companyName", "Login is required").exists()
+	],
+	async (req, res) => {
+		const transaction = await sequelize.transaction();
+		try {
+			const errors = validationResult(req)
+			if (!errors.isEmpty()) {
+				return res.status(400).json({
+					errors: errors.array(),
+					message: 'Incorrect data during editing.'
+				})
+			}
+			const user = { ...req.user, ...req.body }
+			if (req.body.password) {
+				passwordValidation = await check('password', 'Password min length must be 6.').isLength({ min: 6 }).run(req)
+				if (!passwordValidation.isEmpty()) {
+					return res.status(400).json({
+						errors: errors.array(),
+						message: 'Incorrect password.'
+					})
+				}
+				const hashedPassword = await bcrypt.hash(user.password, 10)
+				user.password = hashedPassword
+			}
+
+			await Users.update(
+				user,
+				{ where: { login: user.login } },
+				{ transaction }
+			)
+			await transaction.commit()
+
+			if (user.password) {
+				delete user.password
+			}
+
+			const token = jwt.sign(
+				user,
+				process.env.JWT_SECRET,
+				{ expiresIn: '1h' }
+			)
+			res.status(200).json({ token, user })
+
+		} catch (e) {
+			transaction.rollback();
+			res.status(500).json({ message: 'Something goes wrong, try again' })
+		}
+	})
 
 module.exports = router
